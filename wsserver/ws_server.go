@@ -2,13 +2,13 @@ package main
 
 import (
 	"encoding/binary"
-	"encoding/hex"
+
 	// "encoding/json"
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
+
 	// "strings"
 
 	"github.com/gorilla/websocket"
@@ -35,31 +35,8 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-var clients = make(map[*Client]bool) // connected clients
-// var transcribers = make(map[*ffmpeg.Transcriber]bool)
-
-var RandomIDGenerator = func(length uint) string {
-	x := make([]byte, length, length)
-	for i := 0; i < len(x); i++ {
-		x[i] = byte(rand.Uint32())
-	}
-	return hex.EncodeToString(x)
-}
-
-func RandName() string {
-	return RandomIDGenerator(10)
-}
-
-// func GetTranscriberByID(clientID string) *ffmpeg.Transcriber {
-// 	for t := range transcribers {
-// 		if t.Id == clientID {
-// 			return t
-// 		}
-// 	}
-// 	return nil
-// }
-
 func handleconnections1(w http.ResponseWriter, r *http.Request) {
+	log.Print("Listening at /songdetect")
 	codec := r.Header.Get("X-WS-Audio-Codec")
 	channel := r.Header.Get("X-WS-Audio-Channels")
 	sample_rate := r.Header.Get("X-WS-Rate")
@@ -80,29 +57,23 @@ func handleconnections1(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlepkt(w http.ResponseWriter, r *http.Request, conn *websocket.Conn, codec string) {
-	// clientId := RandName()
-	// t := ffmpeg.NewTranscriber(clientId)
-	// t.Conn = conn
-	_, ok := ffmpeg.AudioCodecLookup[codec]
-	if !ok {
-		panic(fmt.Sprintf("Invalid Codec %s.\n", codec))
-	}
 	fmt.Println("audio codec id:", codec)
-	// var last string
-	// var printed string
+	var recvpkt []ffmpeg.TimedPacket
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			// t.TranscriberCodecDeinit()
-			// t.StopTranscriber()
 			log.Println("read:", err)
 			break
 		}
 		timestamp := binary.BigEndian.Uint64(message[:8])
 		packetdata := message[8:]
 		timedpacket := ffmpeg.TimedPacket{Timestamp: timestamp, Packetdata: ffmpeg.APacket{packetdata, len(packetdata)}}
-		str := ffmpeg.FeedPacket(timedpacket)
-		fmt.Println(str)
+		recvpkt = append(recvpkt, timedpacket)
+		if len(recvpkt) > 700 {
+			fmt.Printf("Processing packets...\n")
+			go ffmpeg.Recvpkts2file(recvpkt)
+			recvpkt = nil
+		}
 	}
 }
 
