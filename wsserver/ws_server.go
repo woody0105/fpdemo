@@ -36,13 +36,12 @@ var upgrader = websocket.Upgrader{
 }
 
 func handleconnections1(w http.ResponseWriter, r *http.Request) {
-	log.Print("Listening at /songdetect")
 	codec := r.Header.Get("X-WS-Audio-Codec")
 	channel := r.Header.Get("X-WS-Audio-Channels")
-	sample_rate := r.Header.Get("X-WS-Rate")
-	bit_rate := r.Header.Get("X-WS-BitRate")
+	sampleRate := r.Header.Get("X-WS-Rate")
+	bitRate := r.Header.Get("X-WS-BitRate")
 
-	if codec == "" || channel == "" || sample_rate == "" || bit_rate == "" {
+	if codec == "" || channel == "" || sampleRate == "" || bitRate == "" {
 		log.Print("audio meta data not present in header, handshake failed.")
 		return
 	}
@@ -53,11 +52,10 @@ func handleconnections1(w http.ResponseWriter, r *http.Request) {
 		log.Print("upgrade:", err)
 		return
 	}
-	go handlepkt(w, r, c, codec)
+	go handlepkt(w, r, c)
 }
 
-func handlepkt(w http.ResponseWriter, r *http.Request, conn *websocket.Conn, codec string) {
-	fmt.Println("audio codec id:", codec)
+func handlepkt(w http.ResponseWriter, r *http.Request, conn *websocket.Conn) {
 	var recvpkt []ffmpeg.TimedPacket
 	for {
 		_, message, err := conn.ReadMessage()
@@ -79,6 +77,7 @@ func handlepkt(w http.ResponseWriter, r *http.Request, conn *websocket.Conn, cod
 
 func startServer1() {
 	http.HandleFunc("/songdetect", handleconnections1)
+	log.Print("Listening at /songdetect")
 }
 
 func main() {

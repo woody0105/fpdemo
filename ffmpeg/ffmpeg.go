@@ -2,10 +2,12 @@ package ffmpeg
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 type TimedPacket struct {
@@ -30,6 +32,26 @@ func RandName() string {
 	return RandomIDGenerator(10)
 }
 
+func ParseRecognitionResult(strIn string) (string, float64, error) {
+	strIn = strings.ReplaceAll(strIn, `{'`, `{"`)
+	strIn = strings.ReplaceAll(strIn, `, '`, `, "`)
+	strIn = strings.ReplaceAll(strIn, `: '`, `: "`)
+	strIn = strings.ReplaceAll(strIn, `':`, `":`)
+	strIn = strings.ReplaceAll(strIn, `',`, `",`)
+	strIn = strings.ReplaceAll(strIn, `'}`, `"}`)
+	strIn = strings.ReplaceAll(strIn, `: b'`, `:"`)
+
+	var result map[string]interface{}
+	json.Unmarshal([]byte(strIn), &result)
+	fmt.Println(result)
+	results := result["results"].([]interface{})
+	topResult := results[0].(map[string]interface{})
+	songName := topResult["song_name"]
+	inConfidence := topResult["input_confidence"]
+	fmt.Println("input_confidence = ", inConfidence)
+	return songName.(string), inConfidence.(float64), nil
+}
+
 func Recvpkts2file(recvpkts []TimedPacket) {
 	fname := "clip" + RandName() + ".aac"
 	workDir := ".tmp/"
@@ -45,6 +67,8 @@ func Recvpkts2file(recvpkts []TimedPacket) {
 	file.Close()
 	res := Recognizefile(workDir + fname)
 	fmt.Printf("Recognition result:\n %s", res)
+	songname, inConfidence, _ := ParseRecognitionResult(res)
+	fmt.Println("songname:", songname, "confidence:", inConfidence)
 }
 
 func Recognizefile(fname string) string {
