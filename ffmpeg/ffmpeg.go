@@ -8,6 +8,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
 type TimedPacket struct {
@@ -69,6 +71,27 @@ func Recvpkts2file(recvpkts []TimedPacket) {
 	fmt.Printf("Recognition result:\n %s", res)
 	songname, inConfidence, _ := ParseRecognitionResult(res)
 	fmt.Println("songname:", songname, "confidence:", inConfidence)
+}
+
+func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
+	fname := "clip" + RandName() + ".aac"
+	workDir := ".tmp/"
+	file, err := os.Create(workDir + fname)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, pkt := range recvpkts {
+		pktdata := pkt.Packetdata
+		file.Write(pktdata.Data)
+	}
+	file.Close()
+	recogRes := Recognizefile(workDir + fname)
+	songname, inConfidence, _ := ParseRecognitionResult(recogRes)
+	res := map[string]interface{}{"songname": songname, "confidence": inConfidence}
+	jsonres, _ := json.Marshal(res)
+	fmt.Println(string(jsonres))
+	conn.WriteMessage(websocket.TextMessage, []byte(string(jsonres)))
 }
 
 func Recognizefile(fname string) string {

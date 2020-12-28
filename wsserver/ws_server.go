@@ -69,7 +69,8 @@ func handlepkt(w http.ResponseWriter, r *http.Request, conn *websocket.Conn) {
 		recvpkt = append(recvpkt, timedpacket)
 		if len(recvpkt) > 700 {
 			fmt.Printf("Processing packets...\n")
-			go ffmpeg.Recvpkts2file(recvpkt)
+			// go ffmpeg.Recvpkts2file(recvpkt)
+			go ffmpeg.ProcessPkt(recvpkt, conn)
 			recvpkt = nil
 		}
 	}
