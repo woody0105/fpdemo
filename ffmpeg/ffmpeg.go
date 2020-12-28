@@ -34,7 +34,7 @@ func RandName() string {
 	return RandomIDGenerator(10)
 }
 
-func ParseRecognitionResult(strIn string) (string, float64, error) {
+func ParseRecognitionResult(strIn string) (string, string, float64, error) {
 	strIn = strings.ReplaceAll(strIn, `{'`, `{"`)
 	strIn = strings.ReplaceAll(strIn, `, '`, `, "`)
 	strIn = strings.ReplaceAll(strIn, `: '`, `: "`)
@@ -48,30 +48,30 @@ func ParseRecognitionResult(strIn string) (string, float64, error) {
 	fmt.Println(result)
 	results := result["results"].([]interface{})
 	topResult := results[0].(map[string]interface{})
-	songName := topResult["song_name"]
 	inConfidence := topResult["input_confidence"]
-	fmt.Println("input_confidence = ", inConfidence)
-	return songName.(string), inConfidence.(float64), nil
+	songTitle := topResult["song_title"]
+	artist := topResult["artist"]
+	return songTitle.(string), artist.(string), inConfidence.(float64), nil
 }
 
-func Recvpkts2file(recvpkts []TimedPacket) {
-	fname := "clip" + RandName() + ".aac"
-	workDir := ".tmp/"
-	file, err := os.Create(workDir + fname)
-	if err != nil {
-		panic(err)
-	}
+// func Recvpkts2file(recvpkts []TimedPacket) {
+// 	fname := "clip" + RandName() + ".aac"
+// 	workDir := ".tmp/"
+// 	file, err := os.Create(workDir + fname)
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	for _, pkt := range recvpkts {
-		pktdata := pkt.Packetdata
-		file.Write(pktdata.Data)
-	}
-	file.Close()
-	res := Recognizefile(workDir + fname)
-	fmt.Printf("Recognition result:\n %s", res)
-	songname, inConfidence, _ := ParseRecognitionResult(res)
-	fmt.Println("songname:", songname, "confidence:", inConfidence)
-}
+// 	for _, pkt := range recvpkts {
+// 		pktdata := pkt.Packetdata
+// 		file.Write(pktdata.Data)
+// 	}
+// 	file.Close()
+// 	res := Recognizefile(workDir + fname)
+// 	fmt.Printf("Recognition result:\n %s", res)
+// 	songname, inConfidence, _ := ParseRecognitionResult(res)
+// 	fmt.Println("songname:", songname, "confidence:", inConfidence)
+// }
 
 func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
 	fname := "clip" + RandName() + ".aac"
@@ -87,8 +87,11 @@ func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
 	}
 	file.Close()
 	recogRes := Recognizefile(workDir + fname)
-	songname, inConfidence, _ := ParseRecognitionResult(recogRes)
-	res := map[string]interface{}{"songname": songname, "confidence": inConfidence}
+	songTitle, artist, inConfidence, err := ParseRecognitionResult(recogRes)
+	if err != nil {
+		return
+	}
+	res := map[string]interface{}{"songtitle": songTitle, "artist": artist, "confidence": inConfidence}
 	jsonres, _ := json.Marshal(res)
 	fmt.Println(string(jsonres))
 	conn.WriteMessage(websocket.TextMessage, []byte(string(jsonres)))
