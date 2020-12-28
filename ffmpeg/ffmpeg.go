@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -35,6 +36,11 @@ func RandName() string {
 }
 
 func ParseRecognitionResult(strIn string) (string, string, float64, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("panic occurred:", err)
+		}
+	}()
 	strIn = strings.ReplaceAll(strIn, `{'`, `{"`)
 	strIn = strings.ReplaceAll(strIn, `, '`, `, "`)
 	strIn = strings.ReplaceAll(strIn, `: '`, `: "`)
@@ -45,7 +51,6 @@ func ParseRecognitionResult(strIn string) (string, string, float64, error) {
 
 	var result map[string]interface{}
 	json.Unmarshal([]byte(strIn), &result)
-	fmt.Println(result)
 	results := result["results"].([]interface{})
 	topResult := results[0].(map[string]interface{})
 	inConfidence := topResult["input_confidence"]
@@ -89,10 +94,11 @@ func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
 	recogRes := Recognizefile(workDir + fname)
 	songTitle, artist, inConfidence, err := ParseRecognitionResult(recogRes)
 	if err != nil {
+		fmt.Println("Recognition result parsing failed.")
 		return
 	}
 	res := map[string]interface{}{"songtitle": songTitle, "artist": artist, "confidence": inConfidence}
-	jsonres, _ := json.Marshal(res)
+	jsonres, err := json.Marshal(res)
 	fmt.Println(string(jsonres))
 	conn.WriteMessage(websocket.TextMessage, []byte(string(jsonres)))
 }
