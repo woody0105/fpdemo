@@ -35,7 +35,7 @@ func RandName() string {
 	return RandomIDGenerator(10)
 }
 
-func ParseRecognitionResult(strIn string) (string, string, float64, error) {
+func ParseRecognitionResult(strIn string) (string, string, string, float64, error) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("panic occurred:", err)
@@ -56,7 +56,8 @@ func ParseRecognitionResult(strIn string) (string, string, float64, error) {
 	inConfidence := topResult["input_confidence"]
 	songTitle := topResult["song_title"]
 	artist := topResult["artist"]
-	return songTitle.(string), artist.(string), inConfidence.(float64), nil
+	songName := topResult["song_name"]
+	return songName.(string), songTitle.(string), artist.(string), inConfidence.(float64), nil
 }
 
 // func Recvpkts2file(recvpkts []TimedPacket) {
@@ -92,12 +93,19 @@ func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
 	}
 	file.Close()
 	recogRes := Recognizefile(workDir + fname)
-	songTitle, artist, inConfidence, err := ParseRecognitionResult(recogRes)
+	songName, songTitle, artist, inConfidence, err := ParseRecognitionResult(recogRes)
+
 	if err != nil {
 		fmt.Println("Recognition result parsing failed.")
 		return
 	}
-	res := map[string]interface{}{"songtitle": songTitle, "artist": artist, "confidence": inConfidence}
+
+	if inConfidence <= 0.07 {
+		fmt.Println("no matching result")
+		return
+	}
+
+	res := map[string]interface{}{"songname": songName, "songtitle": songTitle, "artist": artist}
 	jsonres, err := json.Marshal(res)
 	fmt.Println(string(jsonres))
 	conn.WriteMessage(websocket.TextMessage, []byte(string(jsonres)))
