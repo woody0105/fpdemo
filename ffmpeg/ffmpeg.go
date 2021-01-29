@@ -93,6 +93,7 @@ func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
 	}
 	file.Close()
 	recogRes := Recognizefile(workDir + fname)
+
 	songName, songTitle, artist, inConfidence, err := ParseRecognitionResult(recogRes)
 
 	if err != nil {
@@ -100,12 +101,13 @@ func ProcessPkt(recvpkts []TimedPacket, conn *websocket.Conn) {
 		return
 	}
 
-	if inConfidence <= 0.07 {
+	if inConfidence <= 0.04 {
 		fmt.Println("no matching result")
 		return
 	}
-
-	res := map[string]interface{}{"songname": songName, "songtitle": songTitle, "artist": artist}
+	timestamp := recvpkts[len(recvpkts)-1].Timestamp
+	textresult := "songname: " + songName + "\n artist: " + artist + "\n songtitle: " + songTitle
+	res := map[string]interface{}{"timestamp": timestamp, "text": textresult}
 	jsonres, err := json.Marshal(res)
 	fmt.Println(string(jsonres))
 	conn.WriteMessage(websocket.TextMessage, []byte(string(jsonres)))
